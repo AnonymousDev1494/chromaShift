@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastPaletteHex = [];
     let savedPaletteCount = 0;
     let savedPalettes = {};
+    let currentSelectedHex = '#4ECCA3';
 
     // DOM Elements
     const sbPicker = document.getElementById('sbPicker');
@@ -37,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
         const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
         const oklch = rgbToOklch(rgb.r, rgb.g, rgb.b);
+        currentSelectedHex = hex;
 
         // Update Picker & Previews
         sbPicker.style.backgroundColor = `hsl(${currentH}, 100%, 50%)`;
@@ -58,6 +60,25 @@ document.addEventListener('DOMContentLoaded', () => {
         hueHandle.style.left = `${(currentH / 360) * 100}%`;
 
         generatePalette(rgb);
+    }
+
+    function updateInfoPanelFromRgb(rgb) {
+        const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+        const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
+        const oklch = rgbToOklch(rgb.r, rgb.g, rgb.b);
+
+        swatchPreview.style.backgroundColor = hex;
+        valHex.textContent = hex;
+        valRgb.textContent = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        valHsl.textContent = `${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%`;
+        valOklch.textContent = `${oklch.l.toFixed(2)}, ${oklch.c.toFixed(2)}, ${Math.round(oklch.h)}`;
+    }
+
+    function updateInfoPanelFromHex(hex) {
+        const normalized = (hex || '').trim().toUpperCase();
+        if (!/^#[0-9A-F]{6}$/.test(normalized)) return;
+        const rgb = hexToRgb(normalized);
+        updateInfoPanelFromRgb(rgb);
     }
 
     function generatePalette(baseRgb) {
@@ -114,6 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
     }
 
+    function pickForegroundOnLightSurface(primaryHex, fallbackHex) {
+        const white = { r: 255, g: 255, b: 255 };
+        const primaryRgb = hexToRgb(primaryHex);
+        const ratio = contrastRatio(primaryRgb, white);
+        return ratio >= 3 ? primaryHex : fallbackHex;
+    }
+
     function createColorCard(bgHex, label, textHex, index) {
         const card = document.createElement('div');
         card.className = 'color-card';
@@ -121,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const softBg = hexToRgba(bgHex, 0.18);
         const softBorder = hexToRgba(bgHex, 0.32);
+        const uiFg = pickForegroundOnLightSurface(bgHex, textHex);
 
         card.innerHTML = `
             <div class="color-swatch" style="background-color: ${bgHex}" onclick="copyColor('${bgHex}')" title="Copy background ${bgHex}"></div>
@@ -143,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button
                         class="example-btn example-btn-outline"
                         type="button"
-                        style="background-color: transparent; color: ${bgHex}; border-color: ${bgHex};"
+                        style="background-color: transparent; color: ${uiFg}; border-color: ${uiFg};"
                         aria-label="Outline button example"
                     >
                         Outline
@@ -151,7 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button
                         class="example-btn example-btn-ghost"
                         type="button"
-                        style="background-color: transparent; color: ${bgHex}; border-color: transparent;"
+                        style="background-color: transparent; color: ${uiFg}; border-color: transparent;"
                         aria-label="Ghost button example"
                     >
                         Ghost
@@ -159,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button
                         class="example-btn example-btn-soft"
                         type="button"
-                        style="background-color: ${softBg}; color: ${bgHex}; border-color: ${softBorder};"
+                        style="background-color: ${softBg}; color: ${uiFg}; border-color: ${softBorder};"
                         aria-label="Soft button example"
                     >
                         Soft
@@ -167,6 +196,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>
         `;
+
+        card.addEventListener('mouseenter', () => updateInfoPanelFromHex(bgHex));
+        card.addEventListener('mouseleave', () => updateInfoPanelFromHex(currentSelectedHex));
         return card;
     }
 
