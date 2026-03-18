@@ -133,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Designer-specified HSL lightness scale (bottom -> top):
         // 5, 15, 25, 30, 40, 50, 60, 70, 80, 90, 95, 98
         // In the UI (top -> bottom) we render reversed: 98 ... 5
-        // Also ensure the exact selected color is included by replacing the closest-L slot.
+        // Requirement: the exact selected color must be shade #7 (index 6).
 
         const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
         const hueRounded = ((Math.round(baseHsl.h) % 360) + 360) % 360;
@@ -143,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const palette = lightnessTopToBottom.map((l, index) => {
             const t = index / (lightnessTopToBottom.length - 1); // 0..1 (top -> bottom)
+            const isSelectedSlot = index === 6; // shade #7
 
             // Keep saturation stronger mid-scale, softer near extremes.
             // Special-case hue=0:
@@ -172,26 +173,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 s = Math.max(0, Math.min(100, baseHsl.s * saturationFactor));
             }
 
-            const rgb = hslToRgb(h, s, l);
-            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+            const rgb = isSelectedSlot ? baseRgb : hslToRgb(h, s, l);
+            const hex = isSelectedSlot ? rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b) : rgbToHex(rgb.r, rgb.g, rgb.b);
             return { rgb, hex, label: String(index + 1), l };
         });
-
-        // Replace the closest lightness slot with the exact selected color.
-        let closestIndex = 0;
-        let closestDist = Infinity;
-        for (let i = 0; i < palette.length; i++) {
-            const d = Math.abs(palette[i].l - baseHsl.l);
-            if (d < closestDist) {
-                closestDist = d;
-                closestIndex = i;
-            }
-        }
-        palette[closestIndex] = {
-            ...palette[closestIndex],
-            rgb: baseRgb,
-            hex: rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b)
-        };
 
         lastPaletteHex = palette.map(p => p.hex);
 
