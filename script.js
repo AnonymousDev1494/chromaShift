@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hueRounded = ((Math.round(baseHsl.h) % 360) + 360) % 360;
         const isHueZero = hueRounded === 0;
         const isNearNeutral = baseHsl.s < 12; // hue often collapses to 0 when saturation is very low
-        const lightnessTopToBottom = [98, 95, 90, 80, 70, 60, 50, 40, 30, 25, 15, 5];
+        const lightnessTopToBottom = [98, 95, 90, 80, 70, 60, 50, 40, 36, 34, 28, 4];
 
         const palette = lightnessTopToBottom.map((l, index) => {
             const t = index / (lightnessTopToBottom.length - 1); // 0..1 (top -> bottom)
