@@ -68,7 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 12-step ramp centered on the selected color (so the selected HEX is included)
         // Includes 0 offset => exact selected color at one slot.
-        const offsets = [-45, -38, -30, -22, -14, -7, 0, 7, 14, 22, 30, 38];
+        // Reversed order so the palette runs opposite direction.
+        const offsets = [38, 30, 22, 14, 7, 0, -7, -14, -22, -30, -38, -45];
         const clamp01 = (n) => Math.max(0, Math.min(100, n));
         const lightnessScale = offsets.map((d) => clamp01(baseHsl.l + d));
 
@@ -100,10 +101,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function hexToRgba(hex, alpha) {
+        const rgb = hexToRgb(hex);
+        return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
+    }
+
     function createColorCard(bgHex, label, textHex, index) {
         const card = document.createElement('div');
         card.className = 'color-card';
         card.style.animationDelay = `${index * 0.05}s`;
+
+        const softBg = hexToRgba(bgHex, 0.18);
+        const softBorder = hexToRgba(bgHex, 0.32);
 
         card.innerHTML = `
             <div class="color-swatch" style="background-color: ${bgHex}" onclick="copyColor('${bgHex}')" title="Copy background ${bgHex}"></div>
@@ -116,12 +125,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="example-col">
                     <button
-                        class="example-btn"
+                        class="example-btn example-btn-solid"
                         type="button"
                         style="background-color: ${bgHex}; color: ${textHex}; border-color: ${textHex};"
-                        aria-label="Example button"
+                        aria-label="Solid button example"
                     >
-                        Button
+                        Solid
+                    </button>
+                    <button
+                        class="example-btn example-btn-outline"
+                        type="button"
+                        style="background-color: transparent; color: ${bgHex}; border-color: ${bgHex};"
+                        aria-label="Outline button example"
+                    >
+                        Outline
+                    </button>
+                    <button
+                        class="example-btn example-btn-ghost"
+                        type="button"
+                        style="background-color: transparent; color: ${bgHex}; border-color: transparent;"
+                        aria-label="Ghost button example"
+                    >
+                        Ghost
+                    </button>
+                    <button
+                        class="example-btn example-btn-soft"
+                        type="button"
+                        style="background-color: ${softBg}; color: ${bgHex}; border-color: ${softBorder};"
+                        aria-label="Soft button example"
+                    >
+                        Soft
                     </button>
                 </div>
             </div>
