@@ -66,8 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
         // Work in HSL so we can control perceived lightness
         const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
 
-        // 12-step lightness ramp from very light to very dark (0–100)
-        const lightnessScale = [98, 95, 90, 82, 74, 66, 58, 50, 40, 30, 20, 10];
+        // 12-step ramp centered on the selected color (so the selected HEX is included)
+        // Includes 0 offset => exact selected color at one slot.
+        const offsets = [-45, -38, -30, -22, -14, -7, 0, 7, 14, 22, 30, 38];
+        const clamp01 = (n) => Math.max(0, Math.min(100, n));
+        const lightnessScale = offsets.map((d) => clamp01(baseHsl.l + d));
 
         const palette = lightnessScale.map((l, index) => {
             const stepIndex = index; // 0–11
@@ -80,8 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 Math.min(100, baseHsl.s * saturationFactor)
             );
 
-            const rgb = hslToRgb(baseHsl.h, s, l);
-            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+            // Ensure the exact selected color is included
+            const isSelectedSlot = offsets[index] === 0;
+            const rgb = isSelectedSlot ? baseRgb : hslToRgb(baseHsl.h, s, l);
+            const hex = isSelectedSlot ? rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b) : rgbToHex(rgb.r, rgb.g, rgb.b);
             return { rgb, hex, label: String(index + 1) };
         });
 
@@ -237,61 +242,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function pickDesignerTextColor(bg, palette, bgIndex) {
-        // Designer-first heuristic:
-        // - Prefer palette extremes (1/2/3 or 10/11/12) depending on bg brightness
-        // - Pick the first candidate that meets a readable contrast target
-        // - Fall back to best-contrast if needed
-
+        // With the palette now centered around the selected color, prefer shades
+        // farthest away in the ramp (they usually provide the strongest contrast).
         const targetContrast = 4.5; // good default for normal text
-        const bgLum = relativeLuminance(bg.rgb);
 
-        const byLabel = (n) => palette[Math.max(0, Math.min(11, n - 1))];
-        const preferred =
-            bgLum >= 0.75 ? [12, 11, 10] :
-            bgLum >= 0.60 ? [12, 11, 10, 9] :
-            bgLum >= 0.45 ? [12, 11, 10, 9, 1, 2] :
-            bgLum >= 0.30 ? [1, 2, 3, 12, 11] :
-            bgLum >= 0.18 ? [1, 2, 3, 4] :
-            [1, 2, 3];
+        const candidates = palette
+            .map((c, i) => ({ c, i }))
+            .filter(({ i }) => i !== bgIndex)
+            .sort((a, b) => Math.abs(b.i - bgIndex) - Math.abs(a.i - bgIndex))
+            .map(({ c }) => c);
 
-        // Avoid choosing the same shade as its own text color
-        const bgLabelNum = bgIndex + 1;
-
-        let best = null;
+        let best = candidates[0];
         let bestRatio = -Infinity;
 
-        const tryCandidates = (candidates) => {
-            for (const n of candidates) {
-                if (n === bgLabelNum) continue;
-                const cand = byLabel(n);
-                const ratio = contrastRatio(bg.rgb, cand.rgb);
-                if (ratio >= targetContrast) return cand;
-                if (ratio > bestRatio) {
-                    bestRatio = ratio;
-                    best = cand;
-                }
-            }
-            return null;
-        };
-
-        const picked = tryCandidates(preferred);
-        if (picked) return picked;
-
-        // If none of the preferred choices meet target, pick the best within preferred
-        if (best) return best;
-
-        // Absolute fallback: best contrast across the whole palette
-        let fallback = palette[0];
-        let fallbackRatio = -Infinity;
-        for (const candidate of palette) {
-            if (candidate.label === bg.label) continue;
-            const ratio = contrastRatio(bg.rgb, candidate.rgb);
-            if (ratio > fallbackRatio) {
-                fallbackRatio = ratio;
-                fallback = candidate;
+        for (const cand of candidates) {
+            const ratio = contrastRatio(bg.rgb, cand.rgb);
+            if (ratio >= targetContrast) return cand;
+            if (ratio > bestRatio) {
+                bestRatio = ratio;
+                best = cand;
             }
         }
-        return fallback;
+
+        return best;
     }
 
     function hexToRgb(hex) {
