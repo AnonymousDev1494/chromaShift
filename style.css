@@ -352,8 +352,9 @@ header h1 {
 
 .color-info {
     display: flex;
-    align-items: center;
-    gap: 2.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.7rem;
     flex-grow: 1;
 }
 
@@ -373,7 +374,6 @@ header h1 {
 }
 
 .text-color-col {
-    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 0.8rem;
@@ -381,10 +381,67 @@ header h1 {
 
 .example-col {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    margin-left: 0;
+    gap: 0.5rem;
+}
+
+.m3-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.m3-row {
+    display: grid;
+    grid-template-columns: 78px 1fr;
+    gap: 0.6rem;
     align-items: center;
-    margin-left: 1.2rem;
-    gap: 0.55rem;
-    flex-wrap: wrap;
+}
+
+.m3-row-label {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+}
+
+.m3-state-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.35rem;
+}
+
+.m3-btn {
+    border-radius: 9999px;
+    padding: 0.38rem 0.45rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+    cursor: default;
+    user-select: none;
+}
+
+.m3-btn:active {
+    transform: translateY(0);
+}
+
+.m3-btn-disabled {
+    opacity: 0.95;
+    cursor: default;
+}
+
+.m3-btn-tertiary {
+    background-color: transparent;
+    box-shadow: none;
+    font-weight: 600;
+}
+
+.m3-btn-secondary {
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.06);
 }
 
 .example-btn {

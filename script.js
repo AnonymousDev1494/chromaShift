@@ -130,52 +130,66 @@ document.addEventListener('DOMContentLoaded', () => {
     function generatePalette(baseRgb) {
         paletteGrid.innerHTML = '';
 
-        // Designer-specified HSL lightness scale (bottom -> top):
-        // 5, 15, 25, 30, 40, 50, 60, 70, 80, 90, 95, 98
-        // In the UI (top -> bottom) we render reversed: 98 ... 5
-        // Requirement: the exact selected color must be shade #7 (index 6).
+        // Coolors-like material palette:
+        // - Assume input hex is the "500" tone (we place it at shade #7, index 6).
+        // - Generate tints by mixing toward white and shades by mixing toward black.
+        // - Use OKLCH for more consistent perceptual ramps.
+        //
+        // Stops (top -> bottom):
+        // 25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950
 
-        const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
-        const hueRounded = ((Math.round(baseHsl.h) % 360) + 360) % 360;
+        const baseOklch = rgbToOklch(baseRgb.r, baseRgb.g, baseRgb.b); // { l:0..1, c, h }
+        const baseHex = rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b);
+
+        const hueRounded = ((Math.round(baseOklch.h) % 360) + 360) % 360;
         const isHueZero = hueRounded === 0;
-        const isNearNeutral = baseHsl.s < 12; // hue often collapses to 0 when saturation is very low
-        const lightnessTopToBottom = [98, 95, 90, 80, 70, 60, 50, 40, 36, 34, 28, 4];
+        const isNearNeutral = baseOklch.c < 0.02;
 
-        const palette = lightnessTopToBottom.map((l, index) => {
-            const t = index / (lightnessTopToBottom.length - 1); // 0..1 (top -> bottom)
+        const stops = [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+
+        // Amount to mix toward white for tints (indices 0..5)
+        // Higher => closer to white.
+        const tintMix = [0.97, 0.90, 0.78, 0.64, 0.50, 0.35];
+
+        // Amount to mix toward black for shades (indices 7..11)
+        const shadeMix = [0.22, 0.35, 0.50, 0.63, 0.74];
+
+        const palette = stops.map((_, index) => {
             const isSelectedSlot = index === 6; // shade #7
-
-            // Keep saturation stronger mid-scale, softer near extremes.
-            // Special-case hue=0:
-            // - Near-neutral (low saturation): keep it truly neutral (avoid accidental red tint).
-            // - Red family: optimize darkest tones (#11/#12) to stay "shade-like" (less muddy).
-            let h = baseHsl.h;
-            let s;
-
-            if (isHueZero && isNearNeutral) {
-                h = 0;
-                s = 0;
-            } else {
-                const midBoost = 1 - Math.abs(t - 0.5) * 2; // 0..1..0
-                let saturationFactor = 0.22 + 0.78 * midBoost;
-
-                // Extra desaturation for very dark tones (especially visible for reds).
-                if (l <= 25) {
-                    const darkT = (25 - l) / 25; // 0..1
-                    saturationFactor *= 1 - 0.35 * darkT;
-                }
-
-                // Stronger tuning for the last two shades when hue is 0.
-                if (isHueZero && index >= 10) {
-                    saturationFactor *= 0.55;
-                }
-
-                s = Math.max(0, Math.min(100, baseHsl.s * saturationFactor));
+            if (isSelectedSlot) {
+                return { rgb: baseRgb, hex: baseHex, label: String(index + 1), stop: 500 };
             }
 
-            const rgb = isSelectedSlot ? baseRgb : hslToRgb(h, s, l);
-            const hex = isSelectedSlot ? rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b) : rgbToHex(rgb.r, rgb.g, rgb.b);
-            return { rgb, hex, label: String(index + 1), l };
+            const h = baseOklch.h;
+            let c = baseOklch.c;
+
+            if (isHueZero && isNearNeutral) {
+                c = 0; // avoid unstable hue around "neutral" colors
+            }
+
+            if (index < 6) {
+                const mix = tintMix[index]; // 0..1
+                const l = baseOklch.l + (1 - baseOklch.l) * mix;
+                c = c * Math.pow(1 - mix, 0.85);
+
+                const rgb = oklchToRgb(l, c, h);
+                const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+                return { rgb, hex, label: String(index + 1), stop: stops[index] };
+            } else {
+                const mix = shadeMix[index - 7]; // index 7..11 => 0..4
+                const l = baseOklch.l * (1 - mix);
+                c = c * Math.pow(1 - mix, 0.85);
+
+                // Extra optimization for hue=0 reds: reduce chroma deeper in the scale.
+                if (isHueZero) {
+                    if (index >= 10) c *= 0.70; // 900/950
+                    else if (index >= 9) c *= 0.85; // 800
+                }
+
+                const rgb = oklchToRgb(l, c, h);
+                const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+                return { rgb, hex, label: String(index + 1), stop: stops[index] };
+            }
         });
 
         lastPaletteHex = palette.map(p => p.hex);
@@ -200,6 +214,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return ratio >= 3 ? primaryHex : fallbackHex;
     }
 
+    function mixHex(hexA, hexB, t) {
+        const a = hexToRgb(hexA);
+        const b = hexToRgb(hexB);
+        const r = Math.round(a.r + (b.r - a.r) * t);
+        const g = Math.round(a.g + (b.g - a.g) * t);
+        const bb = Math.round(a.b + (b.b - a.b) * t);
+        return rgbToHex(r, g, bb);
+    }
+
+    function pickForegroundOnBackground(bgHex, fgHex, fallbackHex) {
+        const ratio = contrastRatio(hexToRgb(bgHex), hexToRgb(fgHex));
+        return ratio >= 3 ? fgHex : fallbackHex;
+    }
+
     function createColorCard(bgHex, label, textHex, index) {
         const card = document.createElement('div');
         card.className = 'color-card';
@@ -208,6 +236,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const softBg = hexToRgba(bgHex, 0.18);
         const softBorder = hexToRgba(bgHex, 0.32);
         const uiFg = pickForegroundOnLightSurface(bgHex, textHex);
+
+        // Material 3-ish derived button colors
+        const primaryDefaultBg = bgHex;
+        const primaryHoverBg = mixHex(bgHex, '#FFFFFF', 0.08);
+        const primaryActiveBg = mixHex(bgHex, '#000000', 0.12);
+        const primaryDisabledBg = mixHex(bgHex, '#E5E7EB', 0.72);
+        const primaryDisabledText = '#9CA3AF';
+
+        const secondaryDefaultBg = mixHex(bgHex, '#FFFFFF', 0.76);
+        const secondaryHoverBg = mixHex(bgHex, '#FFFFFF', 0.70);
+        const secondaryActiveBg = mixHex(bgHex, '#FFFFFF', 0.62);
+        const secondaryDisabledBg = '#E5E7EB';
+        const secondaryText = pickForegroundOnBackground(secondaryDefaultBg, bgHex, '#111827');
+
+        const tertiaryBorder = bgHex;
+        const tertiaryText = pickForegroundOnBackground('#FFFFFF', bgHex, '#111827');
+        const tertiaryHoverBg = hexToRgba(bgHex, 0.10);
+        const tertiaryActiveBg = hexToRgba(bgHex, 0.18);
+        const tertiaryDisabledBorder = '#CBD5E1';
+        const tertiaryDisabledText = '#9CA3AF';
 
         card.innerHTML = `
             <div class="color-swatch" style="background-color: ${bgHex}" onclick="copyColor('${bgHex}')" title="Copy background ${bgHex}"></div>
@@ -219,38 +267,61 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="hex-val text-hex">${textHex}</span>
                 </div>
                 <div class="example-col">
-                    <button
-                        class="example-btn example-btn-solid"
-                        type="button"
-                        style="background-color: ${bgHex}; color: ${textHex}; border-color: ${textHex};"
-                        aria-label="Solid button example"
-                    >
-                        Solid
-                    </button>
-                    <button
-                        class="example-btn example-btn-outline"
-                        type="button"
-                        style="background-color: transparent; color: ${uiFg}; border-color: ${uiFg};"
-                        aria-label="Outline button example"
-                    >
-                        Outline
-                    </button>
-                    <button
-                        class="example-btn example-btn-ghost"
-                        type="button"
-                        style="background-color: transparent; color: ${uiFg}; border-color: transparent;"
-                        aria-label="Ghost button example"
-                    >
-                        Ghost
-                    </button>
-                    <button
-                        class="example-btn example-btn-soft"
-                        type="button"
-                        style="background-color: ${softBg}; color: ${uiFg}; border-color: ${softBorder};"
-                        aria-label="Soft button example"
-                    >
-                        Soft
-                    </button>
+                    <div class="m3-buttons" aria-label="Material-like button variants">
+                        <div class="m3-row">
+                            <div class="m3-row-label">Primary</div>
+                            <div class="m3-state-row">
+                                <button class="m3-btn" type="button"
+                                    style="background-color:${primaryDefaultBg}; color:${textHex}; border-color:${primaryDefaultBg};"
+                                    aria-label="Primary default">Default</button>
+                                <button class="m3-btn" type="button"
+                                    style="background-color:${primaryHoverBg}; color:${textHex}; border-color:${primaryHoverBg};"
+                                    aria-label="Primary hover">Hover</button>
+                                <button class="m3-btn" type="button"
+                                    style="background-color:${primaryActiveBg}; color:${textHex}; border-color:${primaryActiveBg};"
+                                    aria-label="Primary active">Active</button>
+                                <button class="m3-btn m3-btn-disabled" type="button" disabled
+                                    style="background-color:${primaryDisabledBg}; color:${primaryDisabledText}; border-color:${primaryDisabledBg};"
+                                    aria-label="Primary disabled">Disabled</button>
+                            </div>
+                        </div>
+
+                        <div class="m3-row">
+                            <div class="m3-row-label">Secondary</div>
+                            <div class="m3-state-row">
+                                <button class="m3-btn m3-btn-secondary" type="button"
+                                    style="background-color:${secondaryDefaultBg}; color:${secondaryText}; border-color:${secondaryDefaultBg};"
+                                    aria-label="Secondary default">Default</button>
+                                <button class="m3-btn m3-btn-secondary" type="button"
+                                    style="background-color:${secondaryHoverBg}; color:${secondaryText}; border-color:${secondaryHoverBg};"
+                                    aria-label="Secondary hover">Hover</button>
+                                <button class="m3-btn m3-btn-secondary" type="button"
+                                    style="background-color:${secondaryActiveBg}; color:${secondaryText}; border-color:${secondaryActiveBg};"
+                                    aria-label="Secondary active">Active</button>
+                                <button class="m3-btn m3-btn-disabled" type="button" disabled
+                                    style="background-color:${secondaryDisabledBg}; color:${primaryDisabledText}; border-color:${secondaryDisabledBg};"
+                                    aria-label="Secondary disabled">Disabled</button>
+                            </div>
+                        </div>
+
+                        <div class="m3-row">
+                            <div class="m3-row-label">Tertiary</div>
+                            <div class="m3-state-row">
+                                <button class="m3-btn m3-btn-tertiary" type="button"
+                                    style="background-color:transparent; color:${tertiaryText}; border-color:${tertiaryBorder};"
+                                    aria-label="Tertiary default">Default</button>
+                                <button class="m3-btn m3-btn-tertiary" type="button"
+                                    style="background-color:${tertiaryHoverBg}; color:${tertiaryText}; border-color:${tertiaryBorder};"
+                                    aria-label="Tertiary hover">Hover</button>
+                                <button class="m3-btn m3-btn-tertiary" type="button"
+                                    style="background-color:${tertiaryActiveBg}; color:${tertiaryText}; border-color:${tertiaryBorder};"
+                                    aria-label="Tertiary active">Active</button>
+                                <button class="m3-btn m3-btn-disabled" type="button" disabled
+                                    style="background-color:transparent; color:${tertiaryDisabledText}; border-color:${tertiaryDisabledBorder};"
+                                    aria-label="Tertiary disabled">Disabled</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
