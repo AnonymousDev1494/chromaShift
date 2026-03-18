@@ -27,6 +27,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const valHsl = document.getElementById('valHsl');
     const valOklch = document.getElementById('valOklch');
 
+    // Hover Preview (duplicate panel)
+    const hoverPreviewPanel = document.getElementById('hoverPreviewPanel');
+    const sbPickerHover = document.getElementById('sbPickerHover');
+    const sbHandleHover = document.getElementById('sbHandleHover');
+    const hueSliderHover = document.getElementById('hueSliderHover');
+    const hueHandleHover = document.getElementById('hueHandleHover');
+    const hexInputHover = document.getElementById('hexInputHover');
+    const swatchPreviewHover = document.getElementById('swatchPreviewHover');
+
+    const valHexHover = document.getElementById('valHexHover');
+    const valRgbHover = document.getElementById('valRgbHover');
+    const valHslHover = document.getElementById('valHslHover');
+    const valOklchHover = document.getElementById('valOklchHover');
+
     function showToast(message) {
         toast.textContent = message;
         toast.classList.add('show');
@@ -62,23 +76,55 @@ document.addEventListener('DOMContentLoaded', () => {
         generatePalette(rgb);
     }
 
-    function updateInfoPanelFromRgb(rgb) {
-        const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+    function setHoverPreviewInactive(isInactive) {
+        if (!hoverPreviewPanel) return;
+        hoverPreviewPanel.classList.toggle('is-inactive', isInactive);
+    }
+
+    function clearHoverPreview() {
+        if (!hoverPreviewPanel) return;
+        setHoverPreviewInactive(true);
+        if (valHexHover) valHexHover.textContent = '—';
+        if (valRgbHover) valRgbHover.textContent = '—';
+        if (valHslHover) valHslHover.textContent = '—';
+        if (valOklchHover) valOklchHover.textContent = '—';
+        if (hexInputHover) hexInputHover.value = '';
+        if (swatchPreviewHover) swatchPreviewHover.style.backgroundColor = 'transparent';
+        if (sbPickerHover) sbPickerHover.style.backgroundColor = `hsl(0, 100%, 50%)`;
+        if (sbHandleHover) {
+            sbHandleHover.style.left = `0%`;
+            sbHandleHover.style.top = `100%`;
+        }
+        if (hueHandleHover) hueHandleHover.style.left = `0%`;
+    }
+
+    function updateHoverPreviewFromHex(hex) {
+        if (!hoverPreviewPanel) return;
+        const normalized = (hex || '').trim().toUpperCase();
+        if (!/^#[0-9A-F]{6}$/.test(normalized)) return;
+
+        const rgb = hexToRgb(normalized);
+        const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
         const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
         const oklch = rgbToOklch(rgb.r, rgb.g, rgb.b);
 
-        swatchPreview.style.backgroundColor = hex;
-        valHex.textContent = hex;
-        valRgb.textContent = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
-        valHsl.textContent = `${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%`;
-        valOklch.textContent = `${oklch.l.toFixed(2)}, ${oklch.c.toFixed(2)}, ${Math.round(oklch.h)}`;
-    }
+        setHoverPreviewInactive(false);
 
-    function updateInfoPanelFromHex(hex) {
-        const normalized = (hex || '').trim().toUpperCase();
-        if (!/^#[0-9A-F]{6}$/.test(normalized)) return;
-        const rgb = hexToRgb(normalized);
-        updateInfoPanelFromRgb(rgb);
+        if (swatchPreviewHover) swatchPreviewHover.style.backgroundColor = normalized;
+        if (hexInputHover) hexInputHover.value = normalized;
+
+        if (valHexHover) valHexHover.textContent = normalized;
+        if (valRgbHover) valRgbHover.textContent = `${rgb.r}, ${rgb.g}, ${rgb.b}`;
+        if (valHslHover) valHslHover.textContent = `${Math.round(hsl.h)}, ${Math.round(hsl.s)}%, ${Math.round(hsl.l)}%`;
+        if (valOklchHover) valOklchHover.textContent = `${oklch.l.toFixed(2)}, ${oklch.c.toFixed(2)}, ${Math.round(oklch.h)}`;
+
+        // Preview picker visuals (non-interactive)
+        if (sbPickerHover) sbPickerHover.style.backgroundColor = `hsl(${hsv.h}, 100%, 50%)`;
+        if (sbHandleHover) {
+            sbHandleHover.style.left = `${hsv.s}%`;
+            sbHandleHover.style.top = `${100 - hsv.v}%`;
+        }
+        if (hueHandleHover) hueHandleHover.style.left = `${(hsv.h / 360) * 100}%`;
     }
 
     function generatePalette(baseRgb) {
@@ -90,16 +136,43 @@ document.addEventListener('DOMContentLoaded', () => {
         // Also ensure the exact selected color is included by replacing the closest-L slot.
 
         const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+        const hueRounded = ((Math.round(baseHsl.h) % 360) + 360) % 360;
+        const isHueZero = hueRounded === 0;
+        const isNearNeutral = baseHsl.s < 12; // hue often collapses to 0 when saturation is very low
         const lightnessTopToBottom = [98, 95, 90, 80, 70, 60, 50, 40, 30, 25, 15, 5];
 
         const palette = lightnessTopToBottom.map((l, index) => {
             const t = index / (lightnessTopToBottom.length - 1); // 0..1 (top -> bottom)
 
-            // Keep saturation stronger mid-scale, softer near extremes
-            const saturationFactor = 0.25 + 0.75 * (1 - Math.abs(t - 0.5) * 2);
-            const s = Math.max(5, Math.min(100, baseHsl.s * saturationFactor));
+            // Keep saturation stronger mid-scale, softer near extremes.
+            // Special-case hue=0:
+            // - Near-neutral (low saturation): keep it truly neutral (avoid accidental red tint).
+            // - Red family: optimize darkest tones (#11/#12) to stay "shade-like" (less muddy).
+            let h = baseHsl.h;
+            let s;
 
-            const rgb = hslToRgb(baseHsl.h, s, l);
+            if (isHueZero && isNearNeutral) {
+                h = 0;
+                s = 0;
+            } else {
+                const midBoost = 1 - Math.abs(t - 0.5) * 2; // 0..1..0
+                let saturationFactor = 0.22 + 0.78 * midBoost;
+
+                // Extra desaturation for very dark tones (especially visible for reds).
+                if (l <= 25) {
+                    const darkT = (25 - l) / 25; // 0..1
+                    saturationFactor *= 1 - 0.35 * darkT;
+                }
+
+                // Stronger tuning for the last two shades when hue is 0.
+                if (isHueZero && index >= 10) {
+                    saturationFactor *= 0.55;
+                }
+
+                s = Math.max(0, Math.min(100, baseHsl.s * saturationFactor));
+            }
+
+            const rgb = hslToRgb(h, s, l);
             const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
             return { rgb, hex, label: String(index + 1), l };
         });
@@ -197,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
 
-        card.addEventListener('mouseenter', () => updateInfoPanelFromHex(bgHex));
-        card.addEventListener('mouseleave', () => updateInfoPanelFromHex(currentSelectedHex));
+        card.addEventListener('mouseenter', () => updateHoverPreviewFromHex(bgHex));
+        card.addEventListener('mouseleave', () => clearHoverPreview());
         return card;
     }
 
@@ -506,4 +579,5 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateUI();
+    clearHoverPreview();
 });

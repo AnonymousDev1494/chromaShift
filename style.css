@@ -111,6 +111,53 @@ header h1 {
     gap: 1.5rem;
 }
 
+.hover-preview-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.1rem;
+    background: rgba(17, 24, 39, 0.02);
+    border: 1px dashed rgba(17, 24, 39, 0.18);
+    border-radius: 20px;
+}
+
+.hover-preview-panel.is-inactive {
+    opacity: 0.65;
+}
+
+.hover-preview-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.hover-preview-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--text-primary);
+}
+
+.hover-preview-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.picker-section-compact.hover .sb-picker,
+.picker-section-compact.hover .hue-slider-container {
+    pointer-events: none;
+}
+
+.picker-section-compact.hover .sb-handle,
+.picker-section-compact.hover .hue-handle {
+    pointer-events: none;
+}
+
+.picker-section-compact.hover #hexInputHover {
+    cursor: default;
+}
+
 .clipboard-panel {
     display: flex;
     flex-direction: column;

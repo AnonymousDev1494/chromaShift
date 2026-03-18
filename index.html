@@ -52,6 +52,47 @@
                     </div>
                 </section>
 
+                <section class="hover-preview-panel" id="hoverPreviewPanel" aria-label="Hovered color preview">
+                    <header class="hover-preview-header">
+                        <h2 class="hover-preview-title">Hovered color</h2>
+                        <span class="hover-preview-hint">Hover a shade to preview</span>
+                    </header>
+
+                    <section class="info-banner-vertical hover" aria-label="Hovered color details">
+                        <div class="info-item">
+                            <span class="info-label">HEX</span>
+                            <span class="info-value" id="valHexHover">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">RGB</span>
+                            <span class="info-value" id="valRgbHover">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">HSL</span>
+                            <span class="info-value" id="valHslHover">—</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="info-label">OKLCH</span>
+                            <span class="info-value" id="valOklchHover">—</span>
+                        </div>
+                    </section>
+
+                    <section class="picker-section-compact hover" aria-label="Hovered color picker preview">
+                        <div class="sb-picker" id="sbPickerHover">
+                            <div class="sb-handle" id="sbHandleHover"></div>
+                        </div>
+
+                        <div class="hue-slider-container" id="hueSliderHover">
+                            <div class="hue-handle" id="hueHandleHover"></div>
+                        </div>
+
+                        <div class="input-wrapper">
+                            <div class="swatch-preview" id="swatchPreviewHover"></div>
+                            <input type="text" id="hexInputHover" value="" maxlength="7" spellcheck="false" readonly>
+                        </div>
+                    </section>
+                </section>
+
                 <section class="clipboard-panel" aria-label="Palette clipboard">
                     <div class="clipboard-header">
                         <h2 class="clipboard-title">Clipboard</h2>
