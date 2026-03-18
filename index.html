@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChromaShift | Premium Color Selection</title>
+    <meta name="description" content="A beautiful and precise color palette generator with RGB, HSL, and OKLCH info.">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="split-layout">
+            <!-- Left Side: Inputs & Details -->
+            <aside class="left-panel">
+                <header>
+                    <h1>ChromaShift</h1>
+                </header>
+
+                <section class="info-banner-vertical">
+                    <div class="info-item">
+                        <span class="info-label">HEX</span>
+                        <span class="info-value" id="valHex">#4ECCA3</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RGB</span>
+                        <span class="info-value" id="valRgb">78, 204, 163</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">HSL</span>
+                        <span class="info-value" id="valHsl">160, 56, 55</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">OKLCH</span>
+                        <span class="info-value" id="valOklch">0.74, 0.12, 160</span>
+                    </div>
+                </section>
+
+                <section class="picker-section-compact">
+                    <div class="sb-picker" id="sbPicker">
+                        <div class="sb-handle" id="sbHandle"></div>
+                    </div>
+
+                    <div class="hue-slider-container" id="hueSlider">
+                        <div class="hue-handle" id="hueHandle"></div>
+                    </div>
+
+                    <div class="input-wrapper">
+                        <div class="swatch-preview" id="swatchPreview"></div>
+                        <input type="text" id="hexInput" value="#4ECCA3" maxlength="7" spellcheck="false">
+                    </div>
+                </section>
+
+                <section class="clipboard-panel" aria-label="Palette clipboard">
+                    <div class="clipboard-header">
+                        <h2 class="clipboard-title">Clipboard</h2>
+                        <div class="clipboard-actions">
+                            <button type="button" class="ui-btn" id="savePaletteBtn" title="Generate and copy palette JSON">
+                                Save
+                            </button>
+                            <button type="button" class="ui-btn ui-btn-secondary" id="copyPaletteBtn" title="Copy JSON to clipboard">
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+                    <textarea
+                        id="paletteClipboard"
+                        class="clipboard-textarea"
+                        readonly
+                        spellcheck="false"
+                        placeholder="Click Save to generate a ready-to-paste palette JSON..."
+                    ></textarea>
+                </section>
+            </aside>
+
+            <!-- Right Side: Vertical Output -->
+            <main class="right-panel">
+                <div class="palette-grid-vertical" id="paletteGrid">
+                    <!-- Dynamic palette cards -->
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">Copied to clipboard!</div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
