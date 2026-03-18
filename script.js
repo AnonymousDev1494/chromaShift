@@ -63,33 +63,41 @@ document.addEventListener('DOMContentLoaded', () => {
     function generatePalette(baseRgb) {
         paletteGrid.innerHTML = '';
 
-        // Work in HSL so we can control perceived lightness
+        // Designer-specified HSL lightness scale (bottom -> top):
+        // 5, 15, 25, 30, 40, 50, 60, 70, 80, 90, 95, 98
+        // In the UI (top -> bottom) we render reversed: 98 ... 5
+        // Also ensure the exact selected color is included by replacing the closest-L slot.
+
         const baseHsl = rgbToHsl(baseRgb.r, baseRgb.g, baseRgb.b);
+        const lightnessTopToBottom = [98, 95, 90, 80, 70, 60, 50, 40, 30, 25, 15, 5];
 
-        // 12-step ramp centered on the selected color (so the selected HEX is included)
-        // Includes 0 offset => exact selected color at one slot.
-        // Reversed order so the palette runs opposite direction.
-        const offsets = [38, 30, 22, 14, 7, 0, -7, -14, -22, -30, -38, -45];
-        const clamp01 = (n) => Math.max(0, Math.min(100, n));
-        const lightnessScale = offsets.map((d) => clamp01(baseHsl.l + d));
+        const palette = lightnessTopToBottom.map((l, index) => {
+            const t = index / (lightnessTopToBottom.length - 1); // 0..1 (top -> bottom)
 
-        const palette = lightnessScale.map((l, index) => {
-            const stepIndex = index; // 0–11
-            const t = stepIndex / (lightnessScale.length - 1); // 0–1
-
-            // Keep saturation strong in the middle, softer near extremes
+            // Keep saturation stronger mid-scale, softer near extremes
             const saturationFactor = 0.25 + 0.75 * (1 - Math.abs(t - 0.5) * 2);
-            const s = Math.max(
-                5,
-                Math.min(100, baseHsl.s * saturationFactor)
-            );
+            const s = Math.max(5, Math.min(100, baseHsl.s * saturationFactor));
 
-            // Ensure the exact selected color is included
-            const isSelectedSlot = offsets[index] === 0;
-            const rgb = isSelectedSlot ? baseRgb : hslToRgb(baseHsl.h, s, l);
-            const hex = isSelectedSlot ? rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b) : rgbToHex(rgb.r, rgb.g, rgb.b);
-            return { rgb, hex, label: String(index + 1) };
+            const rgb = hslToRgb(baseHsl.h, s, l);
+            const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
+            return { rgb, hex, label: String(index + 1), l };
         });
+
+        // Replace the closest lightness slot with the exact selected color.
+        let closestIndex = 0;
+        let closestDist = Infinity;
+        for (let i = 0; i < palette.length; i++) {
+            const d = Math.abs(palette[i].l - baseHsl.l);
+            if (d < closestDist) {
+                closestDist = d;
+                closestIndex = i;
+            }
+        }
+        palette[closestIndex] = {
+            ...palette[closestIndex],
+            rgb: baseRgb,
+            hex: rgbToHex(baseRgb.r, baseRgb.g, baseRgb.b)
+        };
 
         lastPaletteHex = palette.map(p => p.hex);
 
@@ -259,6 +267,62 @@ document.addEventListener('DOMContentLoaded', () => {
         return cs <= 0.04045 ? cs / 12.92 : Math.pow((cs + 0.055) / 1.055, 2.4);
     }
 
+    function linearToSrgb01(c) {
+        return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+    }
+
+    function clamp01(c) {
+        return Math.max(0, Math.min(1, c));
+    }
+
+    function inGamut01(rgb01) {
+        return rgb01.r >= 0 && rgb01.r <= 1 && rgb01.g >= 0 && rgb01.g <= 1 && rgb01.b >= 0 && rgb01.b <= 1;
+    }
+
+    // OKLab / OKLCH conversion (Björn Ottosson)
+    function rgbToOklab(r8, g8, b8) {
+        const r = srgbToLinear(r8);
+        const g = srgbToLinear(g8);
+        const b = srgbToLinear(b8);
+
+        const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+        const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+        const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+
+        const l_ = Math.cbrt(l);
+        const m_ = Math.cbrt(m);
+        const s_ = Math.cbrt(s);
+
+        return {
+            L: 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+            a: 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+            b: 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_
+        };
+    }
+
+    function oklabToRgb01(L, a, b) {
+        const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+        const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+        const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+
+        const l = l_ * l_ * l_;
+        const m = m_ * m_ * m_;
+        const s = s_ * s_ * s_;
+
+        const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+        const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+        const bb = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+        return { r, g, b: bb };
+    }
+
+    function rgb01ToRgb8(rgb01) {
+        const r = Math.round(clamp01(linearToSrgb01(rgb01.r)) * 255);
+        const g = Math.round(clamp01(linearToSrgb01(rgb01.g)) * 255);
+        const b = Math.round(clamp01(linearToSrgb01(rgb01.b)) * 255);
+        return { r, g, b };
+    }
+
     function relativeLuminance(rgb) {
         const r = srgbToLinear(rgb.r);
         const g = srgbToLinear(rgb.g);
@@ -383,12 +447,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function rgbToOklch(r, g, b) {
-        const hsl = rgbToHsl(r, g, b);
-        return {
-            l: (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255,
-            c: (hsl.s / 100) * 0.1,
-            h: hsl.h
-        };
+        const lab = rgbToOklab(r, g, b);
+        const c = Math.sqrt(lab.a * lab.a + lab.b * lab.b);
+        const h = (Math.atan2(lab.b, lab.a) * 180) / Math.PI;
+        return { l: lab.L, c, h: (h + 360) % 360 };
+    }
+
+    function oklchToRgb(l, c, h) {
+        const hr = (h * Math.PI) / 180;
+        const a = c * Math.cos(hr);
+        const b = c * Math.sin(hr);
+
+        // Simple gamut mapping: reduce chroma until it fits in sRGB.
+        let cc = c;
+        for (let i = 0; i < 24; i++) {
+            const rgbLin = oklabToRgb01(l, a * (cc / c || 0), b * (cc / c || 0));
+            if (inGamut01(rgbLin)) {
+                return rgb01ToRgb8(rgbLin);
+            }
+            cc *= 0.90;
+        }
+
+        // Fallback: clamp (rare)
+        const rgbLin = oklabToRgb01(l, a * 0, b * 0);
+        return rgb01ToRgb8(rgbLin);
     }
 
     updateUI();
