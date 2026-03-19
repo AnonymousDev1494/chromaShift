@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="16" y2="16">
+      <stop offset="0" stop-color="#4ECCA3"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rotating chroma mark (animated SVG favicon) -->
+  <g>
+    <circle cx="8" cy="8" r="6.2" fill="none" stroke="url(#g)" stroke-width="1.6"/>
+    <g>
+      <path d="M8 3.2 C10.6 3.2 12.8 5.4 12.8 8 C12.8 10.6 10.6 12.8 8 12.8 C5.4 12.8 3.2 10.6 3.2 8 C3.2 5.4 5.4 3.2 8 3.2 Z" fill="none" stroke="url(#g)" stroke-width="1.1" stroke-dasharray="10 8"/>
+      <animateTransform attributeName="transform" type="rotate" from="0 8 8" to="360 8 8" dur="1.2s" repeatCount="indefinite"/>
+    </g>
+
+    <rect x="7" y="2.6" width="2" height="10.8" rx="1" fill="#4ECCA3" opacity="0.85">
+      <animate attributeName="opacity" values="0.55;0.95;0.55" dur="1.2s" repeatCount="indefinite"/>
+    </rect>
+  </g>
+</svg>
