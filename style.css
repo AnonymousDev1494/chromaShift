@@ -74,6 +74,15 @@ header h1 {
     -webkit-text-fill-color: transparent;
 }
 
+.app-prefix {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.35rem;
+}
+
 .info-banner-vertical {
     display: grid;
     grid-template-columns: 1fr 1fr;
